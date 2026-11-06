@@ -4,26 +4,28 @@
 use function App\Http\sendJson;
 use function App\Inventory\formatProduct;
 
-use App\Repositories\UserRepository;
-use App\Repositories\ProductRepository;
+use App\Repositories\{OrderRepository, ProductRepository, UserRepository};
 
-use App\Services\{AuthService, InventoryService};
+use App\Services\{AuthService, InventoryService, OrderService};
 
-use App\Http\{AuthController, AdminInventory as AdminInventoryController};
+use App\Http\{AuthController, AdminInventory as AdminInventoryController, OrderController};
 
 use function App\Database\connectDatabase;
 
 require_once __DIR__ . '/../src/Http/response.php';
 require_once __DIR__ . '/../src/Http/AuthController.php';
 require_once __DIR__ . '/../src/Http/AdminInventoryController.php';
+require_once __DIR__ . '/../src/Http/OrderController.php';
 
 require_once __DIR__ . '/../src/Inventory/product.php';
 
+require_once __DIR__ . '/../src/Repositories/OrderRepository.php';
 require_once __DIR__ . '/../src/Repositories/ProductRepository.php';
 require_once __DIR__ . '/../src/Repositories/UserRepository.php';
 
 require_once __DIR__ . '/../src/Services/AuthService.php';
 require_once __DIR__ . '/../src/Services/InventoryService.php';
+require_once __DIR__ . '/../src/Services/OrderService.php';
 
 require_once __DIR__ . '/../../database/connection.php';
 
@@ -33,12 +35,15 @@ $pdo = connectDatabase();
 
 $pdoUserRepository = new UserRepository($pdo);
 $pdoProductRepository = new ProductRepository($pdo);
+$pdoOrderRepository = new OrderRepository($pdo);
 
 $authService = new AuthService($pdoUserRepository);
 $inventoryService = new InventoryService($pdoProductRepository);
+$orderService = new OrderService($pdo, $pdoOrderRepository, $pdoProductRepository);
 
 $authController = new AuthController($authService);
 $adminInventoryController = new AdminInventoryController($authService, $inventoryService);
+$orderController = new OrderController($authService, $orderService);
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
@@ -79,6 +84,14 @@ switch ($path) {
     case "/api/restock":
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $adminInventoryController->restock();
+        } else {
+            sendJson(['message' => 'not allowed'], 405);
+        }
+        break;
+
+    case "/api/order":
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $orderController->placeOrder();
         } else {
             sendJson(['message' => 'not allowed'], 405);
         }
